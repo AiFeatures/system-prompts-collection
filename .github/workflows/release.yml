@@ -1,10 +1,50 @@
+#
+# Release — inline semantic-release (per governance ADR-001).
+#
 name: Release
 
 on:
   push:
-    tags:
-      - "v*"
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  id-token: write
+  attestations: write
 
 jobs:
   release:
-    uses: Ai-road-4-You/enterprise-ci-cd/.github/workflows/release.yml@v1
+    name: Semantic Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6.0.0
+        with:
+          node-version: "22"
+
+      - name: Install semantic-release (isolated, ignore workspace)
+        run: |
+          mkdir -p /tmp/semrel && cd /tmp/semrel
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund --loglevel=error \
+            semantic-release@^25 \
+            @semantic-release/changelog@^6 \
+            @semantic-release/commit-analyzer@^13 \
+            @semantic-release/release-notes-generator@^14 \
+            @semantic-release/github@^12 \
+            @semantic-release/git@^10 \
+            conventional-changelog-conventionalcommits@^9
+
+      - name: Run semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        working-directory: ${{ github.workspace }}
+        run: |
+          export NODE_PATH=/tmp/semrel/node_modules
+          /tmp/semrel/node_modules/.bin/semantic-release
